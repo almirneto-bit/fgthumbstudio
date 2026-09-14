@@ -20,9 +20,19 @@ function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error('Não foi possível carregar a imagem.'));
+    image.onerror = () => reject(new Error(`Não foi possível carregar o asset: ${src}`));
     image.src = src;
   });
+}
+
+async function ensureThumbFont(size: number) {
+  try {
+    if (typeof document !== 'undefined' && document.fonts?.load) {
+      await document.fonts.load(`${size}px "Vina Sans"`);
+    }
+  } catch {
+    // O canvas continua usando a fonte de fallback caso a fonte web falhe.
+  }
 }
 
 function drawCover(
@@ -90,7 +100,7 @@ function fitFontSize(ctx: CanvasRenderingContext2D, fields: ThumbFields) {
   const lines = getVisibleLines(fields);
   let size = fields.fontSize;
   while (size > 72) {
-    ctx.font = `400 ${size}px "Vina Sans", sans-serif`;
+    ctx.font = `400 ${size}px "Vina Sans", Impact, sans-serif`;
     if (lines.every((line) => ctx.measureText(line.text.toLocaleUpperCase('pt-BR')).width <= TEXT_BOX.bottomWidth)) break;
     size -= 2;
   }
@@ -99,15 +109,31 @@ function fitFontSize(ctx: CanvasRenderingContext2D, fields: ThumbFields) {
 
 function drawTintedArrow(ctx: CanvasRenderingContext2D, arrow: HTMLImageElement, x: number, y: number, size: number, color: string) {
   const buffer = document.createElement('canvas');
-  buffer.width = size;
-  buffer.height = size;
+  buffer.width = Math.max(1, Math.round(size));
+  buffer.height = Math.max(1, Math.round(size));
   const bufferContext = buffer.getContext('2d');
   if (!bufferContext) return;
-  bufferContext.drawImage(arrow, 0, 0, size, size);
+  bufferContext.drawImage(arrow, 0, 0, buffer.width, buffer.height);
   bufferContext.globalCompositeOperation = 'source-in';
   bufferContext.fillStyle = color;
-  bufferContext.fillRect(0, 0, size, size);
+  bufferContext.fillRect(0, 0, buffer.width, buffer.height);
   ctx.drawImage(buffer, x, y, size, size);
+}
+
+function drawFallbackArrow(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: string) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(5, size * 0.12);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.beginPath();
+  ctx.moveTo(x + size * 0.08, y + size * 0.5);
+  ctx.lineTo(x + size * 0.8, y + size * 0.5);
+  ctx.moveTo(x + size * 0.56, y + size * 0.25);
+  ctx.lineTo(x + size * 0.82, y + size * 0.5);
+  ctx.lineTo(x + size * 0.56, y + size * 0.75);
+  ctx.stroke();
+  ctx.restore();
 }
 
 export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) {
@@ -120,9 +146,15 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
 
   ctx.fillStyle = '#111111';
   ctx.fillRect(0, 0, format.width, format.height);
+
   if (fields.imageUrl) {
-    const image = await loadImage(fields.imageUrl);
-    drawCover(ctx, image, format.width, format.height, platform === 'instagram' ? fields.instagramImage : fields.tiktokImage);
+    try {
+      const image = await loadImage(fields.imageUrl);
+      drawCover(ctx, image, format.width, format.height, platform === 'instagram' ? fields.instagramImage : fields.tiktokImage);
+    } catch (error) {
+      if (fields.imageUrl.startsWith('data:') || fields.imageUrl.startsWith('blob:')) throw error;
+      // Se um asset padrão não carregar, preserva o editor funcional com o fundo neutro.
+    }
   }
 
   if (fields.colorOverlayEnabled && fields.colorOverlayOpacity > 0) {
@@ -136,14 +168,20 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
   if (fields.bottomShadowEnabled) drawGradient(ctx, format.width, format.height, 'bottom');
   if (fields.noiseEnabled) drawNoise(ctx, format.width, format.height, fields.noiseIntensity, fields.noiseSize);
 
-  await document.fonts.load(`${fields.fontSize}px "Vina Sans"`);
+  await ensureThumbFont(fields.fontSize);
   const { lines, size } = fitFontSize(ctx, fields);
   if (lines.length) {
-    const arrow = await loadImage(ARROW_IMAGE);
+    let arrow: HTMLImageElement | null = null;
+    try {
+      arrow = await loadImage(ARROW_IMAGE);
+    } catch {
+      arrow = null;
+    }
+
     const lineHeight = size * 0.8;
     const bottomLineTop = format.height - format.bottomInset - lineHeight;
     const stackTop = bottomLineTop - (lines.length - 1) * (lineHeight + fields.lineGap);
-    ctx.font = `400 ${size}px "Vina Sans", sans-serif`;
+    ctx.font = `400 ${size}px "Vina Sans", Impact, sans-serif`;
     ctx.textBaseline = 'middle';
 
     lines.forEach((line, index) => {
@@ -156,7 +194,9 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
       if (isBottom) {
         const arrowSize = ARROW.width * (size / 160);
         const arrowX = TEXT_BOX.bottomX - 10 * (size / 160) - arrowSize;
-        drawTintedArrow(ctx, arrow, arrowX, lineTop + ARROW.lineTopOffset * (size / 160), arrowSize, line.color);
+        const arrowY = lineTop + ARROW.lineTopOffset * (size / 160);
+        if (arrow) drawTintedArrow(ctx, arrow, arrowX, arrowY, arrowSize, line.color);
+        else drawFallbackArrow(ctx, arrowX, arrowY, arrowSize, line.color);
       }
     });
   }
@@ -187,10 +227,14 @@ const ThumbCanvas = forwardRef<ThumbCanvasHandle, {
         if (cancelled) return;
         const canvas = canvasRef.current;
         const context = canvas?.getContext('2d');
-        if (canvas && context) context.drawImage(buffer, 0, 0);
-        onError('');
+        if (canvas && context) {
+          context.clearRect(0, 0, canvas.width, canvas.height);
+          context.drawImage(buffer, 0, 0);
+        }
       })
-      .catch((error) => { if (!cancelled) onError(error instanceof Error ? error.message : 'Falha ao gerar a prévia.'); });
+      .catch((error) => {
+        if (!cancelled) onError(error instanceof Error ? error.message : 'Falha ao gerar a prévia.');
+      });
     return () => { cancelled = true; };
   }, [fields, platform, onError]);
 
