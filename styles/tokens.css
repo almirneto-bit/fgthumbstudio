@@ -1,0 +1,22 @@
+:root {
+  --stage:#e5e7eb;
+  --stage-dot:rgba(0,0,0,.085);
+  --stage-edge:rgba(0,0,0,.16);
+  --stage-shadow:rgba(0,0,0,.12);
+  --card:#fff;
+  --card-inset:#f3f4f6;
+  --card-thumb:#e5e7eb;
+  --card-soft:#f9fafb;
+  --frame:#e5e7eb;
+  --line:#e5e7eb;
+  --fg:#111827;
+  --fg-body:#111827;
+  --fg-label:#374151;
+  --fg-muted:#6b7280;
+  --inverse-bg:#111827;
+  --inverse-fg:#fff;
+  --r-ctrl:0;
+  --fs-label:13px;
+  --pad-sect:20px;
+  --gap-tight:10px;
+}
