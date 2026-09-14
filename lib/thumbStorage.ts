@@ -14,7 +14,16 @@ const STORE_NAME = 'projects';
 export const ACTIVE_PROJECT_KEY = 'fg-thumb-studio-active-project';
 
 function makeId() {
-  return `thumb-${crypto.randomUUID()}`;
+  const browserCrypto = globalThis.crypto;
+  if (browserCrypto?.randomUUID) return `thumb-${browserCrypto.randomUUID()}`;
+
+  if (browserCrypto?.getRandomValues) {
+    const bytes = new Uint32Array(4);
+    browserCrypto.getRandomValues(bytes);
+    return `thumb-${Array.from(bytes, (value) => value.toString(16).padStart(8, '0')).join('')}`;
+  }
+
+  return `thumb-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 export function createProject(): ThumbProject {
@@ -30,6 +39,11 @@ export function createProject(): ThumbProject {
 
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('O histórico local não está disponível neste navegador.'));
+      return;
+    }
+
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onupgradeneeded = () => {
       const db = request.result;
@@ -37,6 +51,7 @@ function openDb(): Promise<IDBDatabase> {
     };
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => reject(request.error ?? new Error('Não foi possível abrir o histórico local.'));
+    request.onblocked = () => reject(new Error('O histórico local está temporariamente bloqueado.'));
   });
 }
 
@@ -53,6 +68,7 @@ export async function listProjects(): Promise<ThumbProject[]> {
     db.close();
   }
 }
+
 export async function getProject(id: string): Promise<ThumbProject | null> {
   const db = await openDb();
   try {
@@ -70,9 +86,12 @@ export async function saveProject(project: ThumbProject): Promise<ThumbProject[]
   const db = await openDb();
   try {
     await new Promise<void>((resolve, reject) => {
-      const request = db.transaction(STORE_NAME, 'readwrite').objectStore(STORE_NAME).put(project);
-      request.onsuccess = () => resolve();
+      const transaction = db.transaction(STORE_NAME, 'readwrite');
+      const request = transaction.objectStore(STORE_NAME).put(project);
       request.onerror = () => reject(request.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+      transaction.onabort = () => reject(transaction.error ?? new Error('O salvamento local foi interrompido.'));
     });
 
     const projects = await new Promise<ThumbProject[]>((resolve, reject) => {
@@ -89,6 +108,7 @@ export async function saveProject(project: ThumbProject): Promise<ThumbProject[]
         stale.forEach((item) => store.delete(item.id));
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error ?? new Error('A limpeza do histórico foi interrompida.'));
       });
     }
     return ordered.slice(0, 5);
