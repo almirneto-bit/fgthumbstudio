@@ -172,10 +172,12 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
   const { lines, size } = fitFontSize(ctx, fields);
   if (lines.length) {
     let arrow: HTMLImageElement | null = null;
-    try {
-      arrow = await loadImage(ARROW_IMAGE);
-    } catch {
-      arrow = null;
+    if (fields.arrowEnabled) {
+      try {
+        arrow = await loadImage(ARROW_IMAGE);
+      } catch {
+        arrow = null;
+      }
     }
 
     const lineHeight = size * 0.8;
@@ -183,17 +185,20 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
     const stackTop = bottomLineTop - (lines.length - 1) * (lineHeight + fields.lineGap);
     ctx.font = `400 ${size}px "Vina Sans", Impact, sans-serif`;
     ctx.textBaseline = 'middle';
+    ctx.textAlign = 'right';
 
     lines.forEach((line, index) => {
       const isBottom = index === lines.length - 1;
       const lineTop = stackTop + index * (lineHeight + fields.lineGap);
+      const renderedText = line.text.toLocaleUpperCase('pt-BR');
       ctx.fillStyle = line.color;
-      ctx.textAlign = isBottom ? 'left' : 'center';
-      const x = isBottom ? TEXT_BOX.bottomX : TEXT_BOX.upperX + TEXT_BOX.upperWidth / 2;
-      ctx.fillText(line.text.toLocaleUpperCase('pt-BR'), x, lineTop + lineHeight / 2);
-      if (isBottom) {
+      ctx.fillText(renderedText, TEXT_BOX.rightX, lineTop + lineHeight / 2);
+
+      if (isBottom && fields.arrowEnabled) {
         const arrowSize = ARROW.width * (size / 160);
-        const arrowX = TEXT_BOX.bottomX - 10 * (size / 160) - arrowSize;
+        const textWidth = ctx.measureText(renderedText).width;
+        const arrowGap = 10 * (size / 160);
+        const arrowX = TEXT_BOX.rightX - textWidth - arrowGap - arrowSize;
         const arrowY = lineTop + ARROW.lineTopOffset * (size / 160);
         if (arrow) drawTintedArrow(ctx, arrow, arrowX, arrowY, arrowSize, line.color);
         else drawFallbackArrow(ctx, arrowX, arrowY, arrowSize, line.color);
