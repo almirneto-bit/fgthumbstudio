@@ -15,6 +15,7 @@ export type ThumbFields = {
   line3: string;
   fontSize: number;
   lineGap: number;
+  arrowEnabled: boolean;
   bottomShadowEnabled: boolean;
   topShadowEnabled: boolean;
   colorOverlayEnabled: boolean;
@@ -40,7 +41,7 @@ export const THUMB_FORMATS: Record<ThumbPlatform, ThumbFormatSpec> = {
 };
 
 export const THUMB_COLORS = ['#ffffff', '#ef7828', '#ffffff'] as const;
-export const TEXT_BOX = { upperX: 41, upperWidth: 721, bottomX: 197, bottomWidth: 721 };
+export const TEXT_BOX = { upperX: 41, upperWidth: 721, bottomX: 197, bottomWidth: 721, rightX: 762 };
 export const ARROW = { x: 95, width: 92, height: 92, lineTopOffset: 37 };
 
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
@@ -57,6 +58,7 @@ export function createDefaultFields(): ThumbFields {
     line3: '',
     fontSize: 160,
     lineGap: 6,
+    arrowEnabled: true,
     bottomShadowEnabled: true,
     topShadowEnabled: false,
     colorOverlayEnabled: true,
