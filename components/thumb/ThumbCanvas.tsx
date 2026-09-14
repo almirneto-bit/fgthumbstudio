@@ -183,22 +183,24 @@ export async function renderThumb(fields: ThumbFields, platform: ThumbPlatform) 
     const lineHeight = size * 0.8;
     const bottomLineTop = format.height - format.bottomInset - lineHeight;
     const stackTop = bottomLineTop - (lines.length - 1) * (lineHeight + fields.lineGap);
+    const textX = format.safeMargin;
     ctx.font = `400 ${size}px "Vina Sans", Impact, sans-serif`;
     ctx.textBaseline = 'middle';
-    ctx.textAlign = 'right';
+    ctx.textAlign = 'left';
 
     lines.forEach((line, index) => {
       const isBottom = index === lines.length - 1;
       const lineTop = stackTop + index * (lineHeight + fields.lineGap);
       const renderedText = line.text.toLocaleUpperCase('pt-BR');
       ctx.fillStyle = line.color;
-      ctx.fillText(renderedText, TEXT_BOX.rightX, lineTop + lineHeight / 2);
+      ctx.fillText(renderedText, textX, lineTop + lineHeight / 2);
 
       if (isBottom && fields.arrowEnabled) {
         const arrowSize = ARROW.width * (size / 160);
         const textWidth = ctx.measureText(renderedText).width;
         const arrowGap = 10 * (size / 160);
-        const arrowX = TEXT_BOX.rightX - textWidth - arrowGap - arrowSize;
+        const maxArrowX = format.width - format.safeMargin - arrowSize;
+        const arrowX = Math.min(textX + textWidth + arrowGap, maxArrowX);
         const arrowY = lineTop + ARROW.lineTopOffset * (size / 160);
         if (arrow) drawTintedArrow(ctx, arrow, arrowX, arrowY, arrowSize, line.color);
         else drawFallbackArrow(ctx, arrowX, arrowY, arrowSize, line.color);
