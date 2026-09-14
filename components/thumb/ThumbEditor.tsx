@@ -269,7 +269,7 @@ export default function ThumbEditor() {
             <label className="thumb-field thumb-line-field"><span><i style={{ background: THUMB_COLORS[0] }} />Linha 1 · branca</span><input type="text" value={fields.line1} maxLength={36} onChange={(event) => setField('line1', event.target.value)} /></label>
             <label className="thumb-field thumb-line-field"><span><i style={{ background: THUMB_COLORS[1] }} />Linha 2 · laranja</span><input type="text" value={fields.line2} maxLength={36} onChange={(event) => setField('line2', event.target.value)} /></label>
             <label className="thumb-field thumb-line-field"><span><i style={{ background: THUMB_COLORS[2] }} />Linha 3 · branca</span><input type="text" value={fields.line3} maxLength={36} placeholder="Opcional" onChange={(event) => setField('line3', event.target.value)} /></label>
-            <p className="thumb-hint">A última linha fica fixa na base. Ao adicionar a terceira, o bloco cresce para cima e a seta acompanha a linha inferior.</p>
+            <p className="thumb-hint">As três linhas usam o mesmo alinhamento pela direita. A última linha fica fixa na base e a seta pode ser ocultada no Avançado.</p>
 
             <label className="thumb-field thumb-range-field"><span>Tamanho do texto <strong>{fields.fontSize}px</strong></span><input type="range" min="90" max="190" step="1" value={fields.fontSize} onChange={(event) => setField('fontSize', Number(event.target.value))} /></label>
             <div className="thumb-hairline" />
@@ -301,6 +301,8 @@ export default function ThumbEditor() {
             })}
 
             <label className="thumb-field thumb-range-field"><span>Espaço entre linhas <strong>{fields.lineGap}px</strong></span><input type="range" min="-20" max="60" step="1" value={fields.lineGap} onChange={(event) => setField('lineGap', Number(event.target.value))} /></label>
+            <div className="thumb-hairline" />
+            <label className="thumb-toggle-field"><span><strong>Mostrar seta</strong><small>Exibe a seta à esquerda da última linha sem alterar o alinhamento do texto.</small></span><input type="checkbox" checked={fields.arrowEnabled} onChange={(event) => setField('arrowEnabled', event.target.checked)} /></label>
             <div className="thumb-hairline" />
             <label className="thumb-toggle-field"><span><strong>Sombra inferior</strong><small>Gradiente escuro na base.</small></span><input type="checkbox" checked={fields.bottomShadowEnabled} onChange={(event) => setField('bottomShadowEnabled', event.target.checked)} /></label>
             <div className="thumb-hairline" />
